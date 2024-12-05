@@ -1,79 +1,39 @@
-# TimescaleDB for RoadRunner Project
+# RoadRunner - OpsPost
 
-This repository contains the necessary configurations and instructions for deploying TimescaleDB in the RoadRunner project using Helm charts.
+## StackGres Operator
 
-## Repository Structure
+kubectl create namespace monitoring
+kubectl create namespace stackgres
 
-```
-timescaledb/
-├── charts/
-│   └── timescaledb-single/
-├── values/
-│   ├── dev-values.yaml
-│   └── prod-values.yaml
-├── ingress/
-│   └── timescaledb-ingress.yaml
-└── README.md
-```
+helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
 
-## Prerequisites
+helm install --namespace monitoring prometheus-operator prometheus-community/kube-prometheus-stack
 
-- Kubernetes cluster running (dev-cluster or prod-cluster)
-- Helm 3.x installed
-- `kubectl` configured to communicate with your cluster
+helm repo add stackgres-charts https://stackgres.io/downloads/stackgres-k8s/stackgres/helm/
 
-## Deployment
+helm install --namespace stackgres stackgres-operator \
+    --set grafana.autoEmbed=true \
+    --set-string grafana.webHost=prometheus-operator-grafana.monitoring \
+    --set-string grafana.secretNamespace=monitoring \
+    --set-string grafana.secretName=prometheus-operator-grafana \
+    --set-string grafana.secretUserKey=admin-user \
+    --set-string grafana.secretPasswordKey=admin-password \
+    --set-string adminui.service.type=LoadBalancer \
+stackgres-charts/stackgres-operator
 
-We use the official TimescaleDB Helm chart for deployment. The chart is not included in this repository but is fetched during the installation process.
+kubectl port-forward pods/stackgres-restapi-XXXXXXXXXXXXXXXXX 8443:9443 -n stackgres
 
-To deploy TimescaleDB:
+## Zalando Operator
+# add repo for postgres-operator
+helm repo add postgres-operator-charts https://opensource.zalando.com/postgres-operator/charts/postgres-operator
 
-1. Add the TimescaleDB Helm repository:
-   ```
-   helm repo add timescale https://charts.timescale.com/
-   helm repo update
-   ```
+# install the postgres-operator
+helm install postgres-operator postgres-operator-charts/postgres-operator
 
-2. Install TimescaleDB using the appropriate values file:
+# add repo for postgres-operator-ui
+helm repo add postgres-operator-ui-charts https://opensource.zalando.com/postgres-operator/charts/postgres-operator-ui
 
-   For dev environment:
-   ```
-   helm install timescaledb-dev timescale/timescaledb-single -f values/dev-values.yaml -n road-runner
-   ```
+# install the postgres-operator-ui
+helm install postgres-operator-ui postgres-operator-ui-charts/postgres-operator-ui
 
-   For prod environment:
-   ```
-   helm install timescaledb-prod timescale/timescaledb-single -f values/prod-values.yaml -n road-runner
-   ```
-
-3. Apply the Ingress configuration:
-   ```
-   kubectl apply -f ingress/timescaledb-ingress.yaml -n road-runner
-   ```
-
-## Configuration
-
-The `values/` directory contains environment-specific configuration files:
-
-- `dev-values.yaml`: Configuration for the development environment
-- `prod-values.yaml`: Configuration for the production environment
-
-Modify these files to adjust the TimescaleDB deployment according to your needs.
-
-## Ingress
-
-The `ingress/timescaledb-ingress.yaml` file contains the Ingress configuration for exposing TimescaleDB services using Traefik. Ensure that Traefik is properly set up in your cluster before applying this configuration.
-
-## Maintenance
-
-For backup, restore, and other maintenance tasks, refer to the official TimescaleDB documentation and the Helm chart documentation.
-
-## Troubleshooting
-
-If you encounter issues with the deployment, check the following:
-
-1. Ensure all prerequisites are met
-2. Verify that the values in the configuration files are correct
-3. Check the pod status and logs using `kubectl`
-
-For more detailed troubleshooting, consult the TimescaleDB and Kubernetes documentation.
+kubectl port-forward svc/postgres-operator-ui 8081:80

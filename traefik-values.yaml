@@ -1,6 +1,0 @@
-ports:
-  postgres:
-    port: 5432
-    expose: true
-    exposedPort: 5432
-    protocol: TCP
